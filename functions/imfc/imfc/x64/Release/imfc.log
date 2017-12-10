@@ -1,0 +1,22 @@
+﻿Build started 6/13/2017 2:46:49 PM.
+     1>Project "C:\Users\kawashimat\Documents\Spyder\functions\imfc\imfc\imfc.vcxproj" on node 2 (build target(s)).
+     1>InitializeBuildStatus:
+         Touching "x64\Release\imfc.unsuccessfulbuild".
+       ClCompile:
+         All outputs are up-to-date.
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\kawashimat\Documents\Spyder\functions\imfc\x64\Release\imfc.dll" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"x64\Release\imfc.dll.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"C:\Users\kawashimat\Documents\Spyder\functions\imfc\x64\Release\imfc.pdb" /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\kawashimat\Documents\Spyder\functions\imfc\x64\Release\imfc.lib" /MACHINE:X64 /DLL x64\Release\imfc.obj
+            Creating library C:\Users\kawashimat\Documents\Spyder\functions\imfc\x64\Release\imfc.lib and object C:\Users\kawashimat\Documents\Spyder\functions\imfc\x64\Release\imfc.exp
+         Generating code
+         Finished generating code
+         imfc.vcxproj -> C:\Users\kawashimat\Documents\Spyder\functions\imfc\x64\Release\imfc.dll
+       Manifest:
+         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\mt.exe /nologo /verbose /outputresource:"C:\Users\kawashimat\Documents\Spyder\functions\imfc\x64\Release\imfc.dll;#2" /manifest x64\Release\imfc.dll.intermediate.manifest
+       FinalizeBuildStatus:
+         Deleting file "x64\Release\imfc.unsuccessfulbuild".
+         Touching "x64\Release\imfc.lastbuildstate".
+     1>Done Building Project "C:\Users\kawashimat\Documents\Spyder\functions\imfc\imfc\imfc.vcxproj" (build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:00.56

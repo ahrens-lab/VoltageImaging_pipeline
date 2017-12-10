@@ -12,66 +12,6 @@ import sys
 from scipy.sparse.linalg import lsqr
 from scipy.stats import ttest_1samp
 
-def proof_images(imlist,inds):
-    
-    from numpy.random import permutation
-    import matplotlib.patches as patches
-    import imfunctions as im
-    
-    image_size=imlist.shape[2]
-    image_radius=int((imlist.shape[2]-1)/2)
-
-    block_size=100
-    proof=True
-    block_num=np.floor(len(inds)/block_size).astype('int')+1
-    
-    permute_inds=permutation(len(inds))
-    remove_list=[]
-    
-    for b in range(block_num):
-        
-        p1=np.zeros((image_size*10,image_size*10,3))
-        proof_size=min(block_size,len(inds)-(block_size*b))
-        
-        for i in range(proof_size):
-            image=imlist[inds[permute_inds[block_size*b+i]],:,:,:].squeeze()
-            plot_position=(int(i/10),int(np.mod(i,10)))
-            tmp=np.tile(im.imNormalize90(image)[:,:,None],(1,1,3))
-            tmp[image_radius,image_radius,0]=1
-            tmp[image_radius,image_radius,1]=0
-            tmp[image_radius,image_radius,2]=0
-            x=plot_position[0]*image_size
-            y=plot_position[1]*image_size
-            p1[x:(x+image_size),y:(y+image_size),:]=tmp
-        
-        
-        fig=plt.figure(1,figsize=(12,12))
-        fig.clear()
-        ax=plt.axes()
-        plt.imshow(p1)
-        plt.axis('off')
-        cell_list=[]
-        while True:
-            
-            fig.canvas.draw() 
-            xy=fig.ginput(1)
-            
-            if not xy:
-                break
-            else:
-                xpos=int(np.floor(xy[0][0]/image_size))
-                ypos=int(np.floor(xy[0][1]/image_size))
-                
-                x=xpos*image_size
-                y=ypos*image_size
-                rec=patches.Rectangle((x, y), image_size,image_size, fill=False,color='r',linewidth=2)
-                label=ypos*10+xpos
-                cell_list.append(inds[permute_inds[b*block_size+label]])
-                remove_list.append(inds[permute_inds[b*block_size+label]])
-                ax.add_patch(rec)
-                ax.set_title(cell_list)
-                
-    return remove_list
 
 
 def butter_filter(data, btype='high', cutoff=10., fs=300, order=5):

@@ -1,0 +1,22 @@
+﻿Build started 6/13/2017 1:31:26 PM.
+     1>Project "c:\Users\kawashimat\documents\visual studio 2010\Projects\imfc\imfc\imfc.vcxproj" on node 2 (build target(s)).
+     1>InitializeBuildStatus:
+         Touching "Release\imfc.unsuccessfulbuild".
+       ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /O2 /Oi /Oy- /GL /D WIN32 /D NDEBUG /D _WINDOWS /D _USRDLL /D IMFC_EXPORTS /D _WINDLL /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Release\\" /Fd"Release\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt imfc.cpp
+         imfc.cpp
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"c:\users\kawashimat\documents\visual studio 2010\Projects\imfc\Release\imfc.dll" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Release\imfc.dll.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"c:\users\kawashimat\documents\visual studio 2010\Projects\imfc\Release\imfc.pdb" /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"c:\users\kawashimat\documents\visual studio 2010\Projects\imfc\Release\imfc.lib" /MACHINE:X86 /DLL Release\imfc.obj
+         Generating code
+         Finished generating code
+         imfc.vcxproj -> c:\users\kawashimat\documents\visual studio 2010\Projects\imfc\Release\imfc.dll
+       Manifest:
+         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\mt.exe /nologo /verbose /outputresource:"c:\users\kawashimat\documents\visual studio 2010\Projects\imfc\Release\imfc.dll;#2" /manifest Release\imfc.dll.intermediate.manifest
+       FinalizeBuildStatus:
+         Deleting file "Release\imfc.unsuccessfulbuild".
+         Touching "Release\imfc.lastbuildstate".
+     1>Done Building Project "c:\Users\kawashimat\documents\visual studio 2010\Projects\imfc\imfc\imfc.vcxproj" (build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:00.68

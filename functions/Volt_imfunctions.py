@@ -2,17 +2,34 @@
 import numpy as np
 import math
 
-def getStackDims(inDir):
-    """parse xml file to get dimension information of experiment.
-    Returns [x,y,z] dimensions as a list of ints
-    """
-    import struct
-    f = open(inDir+"Stack dimensions.log", "rb")
 
-    s = f.read(12)
-    dims = struct.unpack("<lll", s)
-        
-    return dims
+
+def gaussian(x, mu, sig):
+    
+    return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
+
+
+def remove_hot_pix(imarray, inds):
+    
+    tmp=np.ones((3,3))
+    tmp[1,1]=0
+    move_inds=np.where(tmp)
+    move_inds[0][:]=move_inds[0][:]-1
+    move_inds[1][:]=move_inds[1][:]-1
+
+    dim=imarray.shape
+    keep_ind=np.where((inds[0]>0) & (inds[0]<(dim[1]-1)) & (inds[1]>0) & (inds[1]<(dim[2]-1)))
+    ind_ys=inds[0][keep_ind]
+    ind_xs=inds[1][keep_ind]
+    numpix=len(ind_ys)
+    for i in range(numpix):
+        ind_y=ind_ys[i]
+        ind_x=ind_xs[i]
+        tcourse=imarray[:,ind_y+move_inds[0],ind_x+move_inds[1]]
+        imarray[:,ind_y,ind_x]=tcourse.mean(axis=1).astype(imarray.dtype)
+    print(str(numpix),' hot pixels removed')
+    return imarray
+
 
 
 def makeDisk(r):
@@ -28,241 +45,20 @@ def makeDisk(r):
         ii=ii+1
     
     return array
-
-def makeEllipse(r1,r2):
-    
-    array=np.zeros((2*r1+1,2*r2+1))
-    ii=0;
-    while ii < (2*r1+1):
-        jj=0;
-        while jj < (2*r2+1):
-            if math.sqrt(((ii-r1)/r1)**2 + ((jj-r2)/r2)**2) <= 1:
-                array[ii,jj]=1            
-            jj=jj+1
-        ii=ii+1
-    
-    return array
-
-def makeGaussEllipse(r1,r2):
-    
-    array=np.zeros((2*r1+1,2*r2+1))
-    ii=0;
-    while ii < (2*r1+1):
-        jj=0;
-        while jj < (2*r2+1):
-            if math.sqrt(((ii-r1)/r1)**2 + ((jj-r2)/r2)**2) <= 1:
-                array[ii,jj]=1            
-            jj=jj+1
-        ii=ii+1
-    
-    return array
-
-def makeGaussEllipse(height, center_x, center_y, width_x, width_y,rotation):
-        """Returns a gaussian function with the given parameters"""
-        width_x = float(width_x)
-        width_y = float(width_y)
-
-        rotation = np.deg2rad(rotation)
-        center_x = center_x * np.cos(rotation) - center_y * np.sin(rotation)
-        center_y = center_x * np.sin(rotation) + center_y * np.cos(rotation)
-
-        def rotgauss(x,y):
-            xp = x * np.cos(rotation) - y * np.sin(rotation)
-            yp = x * np.sin(rotation) + y * np.cos(rotation)
-            g = height*np.exp(
-                -(((center_x-xp)/width_x)**2+
-                  ((center_y-yp)/width_y)**2)/2.)
-            return g
-        
-        out=np.zeros((height,height))
-        
-        for i in range(height):
-            out[:,i]=rotgauss(np.arange(height),i)
-        
-        return out
-    
-
-
-def makeDiskInd(r,dims):
-    
-    array=np.zeros((2*r+1,2*r+1))
-    ii=0.;
-    while ii < (2*r+1):
-        jj=0.;
-        while jj < (2*r+1):
-            if math.sqrt((ii-r)**2 + (jj-r)**2) <= r:
-                array[ii,jj]=1            
-            jj=jj+1
-        ii=ii+1
-    
-    ind=np.nonzero(array);
-    return (ind[0]-r,ind[1]-r)
-    
-
-def makeDiskInd2(r,dims):
-    
-    array=np.zeros((2*r+1,2*r+1))
-    ii=0.;
-    while ii < (2*r+1):
-        jj=0.;
-        while jj < (2*r+1):
-            if math.sqrt((ii-r)**2 + (jj-r)**2) <= r:
-                array[ii,jj]=1            
-            jj=jj+1
-        ii=ii+1
-    
-    ind=np.nonzero(array);
-    return np.int32(array), np.int32((ind[0]-r)*dims[1]+(ind[1]-r)) ,np.int32((2*r+1,2*r+1))  
- 
-
-def ones_rank(shape,r):
-    
-    small_ones=np.ones((2*r+1,2*r+1))
-    small_ones_pad=np.pad(small_ones,(r,r),'constant', constant_values=0)
-    
-    disk=makeDisk(r)
-    disk[r,r]=0
-    (r_inds,c_inds)=np.where(disk>0)
-    r_inds -= r
-    c_inds -= r
-    
-    out_small_pad=np.zeros((small_ones_pad.shape))
-    (one_r_inds,one_c_inds)=np.where(small_ones_pad>0)
-    
-    for i in range(len(one_r_inds)):
-        out_small_pad[one_r_inds[i],one_c_inds[i]]=np.sum(small_ones_pad[one_r_inds[i]+r_inds,one_c_inds[i]+c_inds])
-    
-    out_small=out_small_pad[r:-r,r:-r]
-    out=np.zeros(shape)
-    out[:r,:r]=out_small[:r,:r]
-    out[-r:,:r]=out_small[-r:,:r]
-    out[:r,-r:]=out_small[:r,-r:]
-    out[-r:,-r:]=out_small[-r:,-r:]
-    out[:r,r:-r]=out_small[:r,r][:,None]
-    out[-r:,r:-r]=out_small[-r:,r][:,None]
-    out[r:-r,:r]=out_small[r,:r]
-    out[r:-r,-r:]=out_small[r,-r:]
-    out[r:-r,r:-r]=out_small[r,r]
-    
-    
-    return out
+          
 
     
-def imrank(image,r):
     
-    disk=makeDisk(r)
-    disk[r,r]=0
-    (r_inds,c_inds)=np.where(disk>0)
-    r_inds -= r
-    c_inds -= r
+def imNormalize(array,fr):
     
-    image_pad=np.pad(image,(r,r),'constant', constant_values=0)
-    (one_r_inds,one_c_inds)=np.where(image_pad>0)
-    out_pad=np.zeros(image_pad.shape)
-    
-    for i in range(len(one_r_inds)):
-        series=image_pad[one_r_inds[i]+r_inds,one_c_inds[i]+c_inds]
-        v=image_pad[one_r_inds[i],one_c_inds[i]]
-        out_pad[one_r_inds[i],one_c_inds[i]]=np.sum((series>0)*(series<v))
-    
-    return out_pad[r:-r,r:-r]
-
-
-def local_minima(image,r):
-    
-    disk=makeDisk(r)
-    disk[r,r]=0
-    (r_inds,c_inds)=np.where(disk>0)
-    r_inds -= r
-    c_inds -= r
-    
-    image_pad=np.pad(image,(r,r),'constant', constant_values=2)
-    (one_r_inds,one_c_inds)=np.where(image_pad<2)
-    out_pad=np.zeros(image_pad.shape)
-    
-    for i in range(len(one_r_inds)):
-        series=image_pad[one_r_inds[i]+r_inds,one_c_inds[i]+c_inds]
-        v=image_pad[one_r_inds[i],one_c_inds[i]]
-        out_pad[one_r_inds[i],one_c_inds[i]]=(v<=series.min())
-    
-    
-    return out_pad[r:-r,r:-r]
-    
-              
-def imNormalize90(array):
-    
+    div=100/(100-fr)
     nlen=array.size
     t=np.sort(array.reshape((1,nlen)));
     
-    vmax=t[0,-round(nlen/10)]
+    vmax=t[0,-round(nlen/div)]
     vmin=array.min()
     array2=(array-vmin)/(vmax-vmin)
     array2=np.clip(array2,0,1)
-    
-    return array2      
-
-
-def imNormalize95(array):
-    
-    nlen=array.size
-    t=np.sort(array.reshape((1,nlen)));
-    
-    vmax=t[0,-round(nlen/20)]
-    vmin=array.min()
-    array2=(array-vmin)/(vmax-vmin)
-    array2=np.clip(array2,0,1)
-    
-    return array2    
-    
-    
-def imNormalize99(array):
-    
-    nlen=array.size
-    t=np.sort(array.reshape((1,nlen)));
-    
-    vmax=t[0,-round(nlen/100)]
-    vmin=array.min()
-    array2=(array-vmin)/(vmax-vmin)
-    array2=np.clip(array2,0,1)
-    
-    return array2    
-
-    
-def imNormalize999(array):
-    
-    nlen=array.size
-    t=np.sort(array.reshape((1,nlen)));
-    
-    vmax=t[0,-round(nlen/1000)]
-    vmin=array.min()
-    array2=(array-vmin)/(vmax-vmin)
-    array2=np.clip(array2,0,1)
-    
-    return array2    
-    
-def imNormalize9999(array):
-    
-    nlen=array.size
-    t=np.sort(array.reshape((1,nlen)));
-    
-    vmax=t[0,-round(nlen/10000)]
-    vmin=array.min()
-    array2=(array-vmin)/(vmax-vmin)
-    array2=np.clip(array2,0,1)
-    
-    return array2    
-
-    
-def imNormalize99_color(array):
-    
-    nlen=array.size
-    t=np.sort(array.reshape((1,nlen)));
-    
-    vmax=t[0,-round(nlen/100)]
-    vmin=array.min()
-    array2=(array-vmin)/(vmax-vmin)
-    array2=np.clip(array2,0,1)
-    array2=np.transpose(np.tile(array2,[3,1,1]),axes=(1,2,0))
     
     return array2    
     
@@ -283,7 +79,7 @@ def LassoSelection(img):
     
     fig = plt.figure(1,figsize=(14,7))
     ax1 = plt.subplot(121)
-    f1=ax1.imshow(imNormalize99(img),cmap=plt.get_cmap('gray'));
+    f1=ax1.imshow(imNormalize(img,99),cmap=plt.get_cmap('gray'));
     ax2 = plt.subplot(122)
     f2=ax2.imshow(ROI_color,cmap=plt.get_cmap('gray'));
     
@@ -332,120 +128,14 @@ def LassoSelection(img):
     return nROI,ROI
     
 
-def calc_mov_baseline(trace,span,fraction,mode='bottom'):
-
-    totlen=trace.size
-    halfspan=np.floor(span/2)
-    moves=np.arange(-halfspan,halfspan+1).astype('int32')
-    calc_inds=(halfspan+np.arange(0,totlen)).astype('int32')
-    
-    
-    tmp=np.matlib.repmat(np.append(np.arange(0,totlen)+1,np.zeros(span+1,)),1,len(moves));
-    move_matrix=np.reshape(tmp[:,:-span-1],(len(moves),totlen+span))
-    move_matrix=move_matrix[:,calc_inds]
-    
-    dim=move_matrix.shape
-    
-    
-    avefraction=np.ceil((move_matrix!=0).sum(axis=0)*fraction).astype('int')
-    one_matrix=np.zeros(move_matrix.shape)
-    
-    for i in range(totlen):
-        one_matrix[0:avefraction[i],i]=1
-                  
-    out=np.zeros((1,totlen))
-    
-    transfer_pos=np.where((move_matrix.T)>0);
-    transfer_inds=(move_matrix.T)[transfer_pos].astype('int32')
-    
-    
-    if mode=='bottom':
-        calc_matrix=np.ones(dim)*66000
-        calc_matrix[transfer_pos[1],transfer_pos[0]]=trace[transfer_inds-1]
-        tmp=np.sort(calc_matrix,axis=0)
-    else:
-        calc_matrix=np.ones(dim)*(-1)
-        calc_matrix[transfer_pos[1],transfer_pos[0]]=trace[transfer_inds-1]
-        tmp=np.flipud(np.sort(calc_matrix,axis=0))
-        
-    out=(tmp*one_matrix).sum(axis=0)/(avefraction.astype('single'))
-    return out
-
-def calcMovBaseline_parallel(trace,span,fraction):
-    
-    from multiprocessing import Process, Queue
-    
-    trace=trace.T
-    
-    ncell=trace.shape[0]
-    totlen=trace.shape[1]
-    halfspan=np.floor(span/2);
-    
-    moves=np.arange(-halfspan,halfspan+1)
-    calc_inds=halfspan+np.arange(0,totlen)
-    
-    tmp=np.zeros((totlen+span+1,1))
-    tmp[:totlen,0]=np.arange(1,totlen+1)
-    tmp=np.tile(tmp,(len(moves),1))
-    move_matrix=np.reshape(tmp[0:-span-1,0],(len(moves),totlen+span),order='C')
-    move_matrix=move_matrix[:,np.int32(calc_inds)]
-    
-    dim=move_matrix.shape
-    
-    avefraction=np.float32(np.ceil(np.sum(move_matrix>0,axis=0)*fraction))
-    
-    one_matrix=np.zeros(move_matrix.shape);
-    for i in range(totlen):
-        one_matrix[0:avefraction[i],i]=1
-        
-    
-    transfer_pos=np.where(move_matrix.T>0)
-    transfer_inds=np.int32(move_matrix[transfer_pos[1],transfer_pos[0]]-1)
-    calc_matrix=np.ones(dim,dtype=np.float32)*70000;
-    
-    baseline=np.zeros((ncell,totlen));
-    
-    
-    def pnormalize(keys,trace_chunk,out_q):
-        
-        nrep=trace_chunk.shape[0]
-        outdict={}
-        for j in range(nrep):
-            tmp=trace_chunk[j,:]
-            calc_matrix[transfer_pos[1],transfer_pos[0]]=tmp[transfer_inds]
-            outdict[keys[j]]=np.sum(one_matrix*np.sort(calc_matrix, axis=0),axis=0)/avefraction
-            
-        out_q.put(outdict)
-    
-    nprocs=12
-    out_q=Queue()
-    chunksize=int(np.ceil(float(ncell)/float(nprocs)))
-    procs=[]
-    
-    for i in range(nprocs):
-        p=Process(target=pnormalize,args=(range(chunksize*i,chunksize*(i+1)),trace[chunksize*i:chunksize*(i+1),:],out_q))
-        procs.append(p)
-        p.start()
-    
-    resultdict={}
-    for i in range(nprocs):
-        resultdict.update(out_q.get())
-        
-    for p in procs:
-        p.join()
-    
-    for i in range(ncell):
-        baseline[i,:]=resultdict[i].T;
-    
-    return baseline.T
-
 
 def imrank_dll(image,r):
     
     import ctypes
     from numpy.ctypeslib import ndpointer
+    import os
     
-    imfc = ctypes.cdll.LoadLibrary(r"C:\Users\kawashimat\Documents\Spyder\functions\imfc\x64\Release\imfc.dll")
+    imfc = ctypes.cdll.LoadLibrary(os.getcwd()+r"\\functions\\imfc.dll")
     
     func1 = imfc.imrank
     func1.restype = None
@@ -486,13 +176,16 @@ def imrank_dll(image,r):
     
     return rankout.astype('float')/onesout.astype('float')
 
+
+
 def local_minima_dll(image,r):
     
     
     import ctypes
     from numpy.ctypeslib import ndpointer
+    import os
     
-    imfc = ctypes.cdll.LoadLibrary(r"C:\Users\kawashimat\Documents\Spyder\functions\imfc\x64\Release\imfc.dll")
+    imfc = ctypes.cdll.LoadLibrary(os.getcwd()+r"\\functions\\imfc.dll")
     
     func1 = imfc.local_min
     func1.restype = None
@@ -690,3 +383,65 @@ def draw_periphery(image,ys,xs,r):
         ROI_inds.append((inds[0]-r*2+y,inds[1]-r*2+x))
     
     return ROI_inds
+
+def proof_images(imlist,inds):
+    
+    from numpy.random import permutation
+    import matplotlib.patches as patches
+    import imfunctions as im
+    import matplotlib.pyplot as plt
+    
+    image_size=imlist.shape[2]
+    image_radius=int((imlist.shape[2]-1)/2)
+
+    block_size=100
+    proof=True
+    block_num=np.floor(len(inds)/block_size).astype('int')+1
+    
+    permute_inds=permutation(len(inds))
+    remove_list=[]
+    
+    for b in range(block_num):
+        
+        p1=np.zeros((image_size*10,image_size*10,3))
+        proof_size=min(block_size,len(inds)-(block_size*b))
+        
+        for i in range(proof_size):
+            image=imlist[inds[permute_inds[block_size*b+i]],:,:,:].squeeze()
+            plot_position=(int(i/10),int(np.mod(i,10)))
+            tmp=np.tile(im.imNormalize90(image)[:,:,None],(1,1,3))
+            tmp[image_radius,image_radius,0]=1
+            tmp[image_radius,image_radius,1]=0
+            tmp[image_radius,image_radius,2]=0
+            x=plot_position[0]*image_size
+            y=plot_position[1]*image_size
+            p1[x:(x+image_size),y:(y+image_size),:]=tmp
+        
+        
+        fig=plt.figure(1,figsize=(12,12))
+        fig.clear()
+        ax=plt.axes()
+        plt.imshow(p1)
+        plt.axis('off')
+        cell_list=[]
+        while True:
+            
+            fig.canvas.draw() 
+            xy=fig.ginput(1)
+            
+            if not xy:
+                break
+            else:
+                xpos=int(np.floor(xy[0][0]/image_size))
+                ypos=int(np.floor(xy[0][1]/image_size))
+                
+                x=xpos*image_size
+                y=ypos*image_size
+                rec=patches.Rectangle((x, y), image_size,image_size, fill=False,color='r',linewidth=2)
+                label=ypos*10+xpos
+                cell_list.append(inds[permute_inds[b*block_size+label]])
+                remove_list.append(inds[permute_inds[b*block_size+label]])
+                ax.add_patch(rec)
+                ax.set_title(cell_list)
+                
+    return remove_list
