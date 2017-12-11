@@ -236,7 +236,17 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
             ## if the shape of first 50 spikes are suspicious, it will return an empty array 
             ## this will stop erroneous detection of noise after there is no spike anymore
             
+            
             spiketimes = get_spiketimes(high_freq, high_freq_med + 2.5 * high_freq_std,trace, trace_med+2.5*trace_std,tlimit)
+            if (len(trace))<50000:
+                
+                #shorter recording should have looser criteria
+                spiketimes = get_spiketimes(high_freq, high_freq_med + 2.5 * high_freq_std,trace, trace_med+2.5*trace_std,tlimit)
+                
+            else:
+                
+                spiketimes = get_spiketimes(high_freq, high_freq_med + 3.5 * high_freq_std,trace, trace_med+3.5*trace_std,tlimit)
+            
             
             spikebins=50
             spikenrep=(len(spiketimes)//spikebins)+int((len(spiketimes)%spikebins)>0)
@@ -246,24 +256,45 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
                 spike_inds=np.arange(spikebins*n,min(spikebins*(n+1),len(spiketimes)))
                 slen=len(spike_inds)
                 spike_t=spiketimes[spike_inds]
-                spike_t=spike_t[(((spike_t+4)<len(trace)) & ((spike_t-2)>=0))]
-                pre  = (high_freq[spike_t-1]+high_freq[spike_t-2])/2
-                post = (high_freq[spike_t+3]+high_freq[spike_t+4])/2
-                s,p = ttest_1samp(pre-post,0)
+                spike_t=spike_t[(spike_t-4)>=0]
                 
-                if (p<0.1) and ((pre-post).mean()>0):
-                    tlimit=spike_t[-1]+15
+                spike_matrix=np.zeros((len(spike_t),3))
+                median_matrix=np.zeros((len(spike_t),3))
+                std_matrix=np.zeros((len(spike_t),3))
+                for t in range(3):
+                    spike_matrix[:,t]=trace[spike_t-4+t]
+                    median_matrix[:,t]=trace_med[spike_t-4+t]
+                    std_matrix[:,t]=trace_std[spike_t-4+t]
+                
+                diff=(spike_matrix.mean(axis=1)-median_matrix.mean(axis=1))/std_matrix.mean(axis=1)
+                
+                s,p = ttest_1samp(diff,0)
+                
+                if (p<0.1) and (diff.mean()>0):
+                        tlimit=min(spike_t[-1]+15,len(trace))
+                        
                 elif n>0:
                     for j in range(slen):
                         endt=min(spikebins*(n+1),len(spiketimes))-j
                         spike_inds=np.arange((endt-50),endt)
                         spike_t=spiketimes[spike_inds]
-                        spike_t=spike_t[(((spike_t+4)<len(trace)) & ((spike_t-2)>=0))]
-                        pre  = (high_freq[spike_t-1]+high_freq[spike_t-2])/2
-                        post = (high_freq[spike_t+3]+high_freq[spike_t+4])/2
-                        s,p = ttest_1samp(pre-post,0)
-                        if (p<0.1):
-                            tlimit=spike_t[-1]+15
+                        spike_t=spike_t[(spike_t-4)>=0]
+                        
+
+                        spike_matrix=np.zeros((len(spike_t),3))
+                        median_matrix=np.zeros((len(spike_t),3))
+                        std_matrix=np.zeros((len(spike_t),3))
+                        for t in range(3):
+                            spike_matrix[:,t]=trace[spike_t-4+t]
+                            median_matrix[:,t]=trace_med[spike_t-4+t]
+                            std_matrix[:,t]=trace_std[spike_t-4+t]
+                        
+                        diff=(spike_matrix.mean(axis=1)-median_matrix.mean(axis=1))/std_matrix.mean(axis=1)
+                        
+                        s,p = ttest_1samp(diff,0)
+                
+                        if (p<0.1) and (diff.mean()>0):
+                            tlimit=min(spike_t[-1]+15,len(trace))
                             break
                     break
                 else:

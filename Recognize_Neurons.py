@@ -15,8 +15,8 @@ K.set_image_dim_ordering('th') # color channel first
 
 
 
-pathname=r"D:\Takashi\SPIM\Maarten\test";
-fname="Fish3-4_20171009_172443"
+pathname=r"D:\Takashi\SPIM\06152017";
+fname="Fish3-3"
 
 
 br_threshold1=120

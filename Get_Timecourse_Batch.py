@@ -20,7 +20,7 @@ from scipy import stats
 import glob
 
 
-dirname=r"D:\Takashi\SPIM\Maarten\test";
+dirname=r"D:\Takashi\SPIM\06152017\test";
 
 subdir=glob.glob(dirname+"\\Fish*\\")
 
@@ -59,7 +59,6 @@ for d in range(len(subdir)):
         np.save(imdir+"ROI_info.npy",ROI_info)
         
         
-        
         active_cell=np.zeros((len(ROI_info),))
         active_n=0
         plt.figure(1,figsize=(16,8))
@@ -75,11 +74,19 @@ for d in range(len(subdir)):
             if t['active']==1:
                 active_n+=1;
                 active_cell[i]=1
-                plt.subplot(1,2,2).plot(np.arange(len(t['norm_tcourse2']))/300,t['norm_tcourse2']-1+0.2*(active_n-1))
+                tlimit=t['tlimit2']
+                spikes=np.where(t['spike_tcourse2']>0)[0]
+                
+                plt.subplot(1,2,2).plot(np.arange(tlimit)/300,t['norm_tcourse2'][:tlimit]-1+0.2*(active_n-1))
+                plt.subplot(1,2,2).plot(np.arange(tlimit,len(t['norm_tcourse2']))/300,t['norm_tcourse2'][tlimit:len(t['norm_tcourse2'])]-1+0.2*(active_n-1),color=(0.3,0.3,0.3))
+                
+                for s in range(len(spikes)):
+                    plt.subplot(1,2,2).plot(spikes[s]/300,0.15+0.2*(active_n-1),'ko',markersize=1)
                 plt.ylim(-0.1,0.2*active_n+0.1) 
                 
         plt.savefig(imdir+"activity_timecourse.png")
                 
+
         
         active_cells=np.where(active_cell)[0]
         active_tcourse=np.zeros((active_n,image_len))
@@ -93,7 +100,7 @@ for d in range(len(subdir)):
         np.save(imdir+"active_spike_tcourse.npy",active_spike_tcourse)
         
         
-        plt.figure(2,figsize=(18,6))
+        plt.figure(3,figsize=(18,6))
         plt.subplot(131).imshow(im.imNormalize(ave.astype('float'),99.9), cmap='gray')
         
         img_color=np.tile(im.imNormalize(ave.astype('float'),99.9)[:,:,None],(1,1,3))
@@ -134,6 +141,7 @@ for d in range(len(subdir)):
                 spike_matrix=np.zeros((len(spikes),21))
                 for i in range(len(spikes)):
                     spike_matrix[i,:]=t['norm_tcourse2'][spikes[i]-10:spikes[i]+11]
+                    spike_matrix[i,:]-=np.median(spike_matrix[i,:])
                 ave=spike_matrix.mean(axis=0)
                 std=spike_matrix.std(axis=0)
                 
