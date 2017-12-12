@@ -214,8 +214,6 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
     # Modified by Takashi Kawashima @ HHMI Janelia
     
     
-    tlimit=len(trace)
-    
     for iters in range(3):
         sub_thresh1 = trace if iters == 0 else trace - \
             np.convolve(spiketrain, kernel, 'same')  # subtract spikes
@@ -231,80 +229,98 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
         # high threshold to confidently pick up spikes, ok to miss some
         if iters == 0:
             
+            
+    
+            threshold_sets=(2.5,3.,3.5);
+            th_scores=np.ones((len(threshold_sets),))
+            th_tlimits=np.zeros((len(threshold_sets),))
+            
+            for th in range(len(threshold_sets)):
+                
+                tlimit=len(trace)
+                
+            
+                thre=threshold_sets[th]
+                
+                ## check validity of spike kernel by detecting pre-spike ramp 
+                ## if the shape of first 50 spikes are suspicious, it will return an empty array 
+                ## this will stop erroneous detection of noise after there is no spike anymore
+                
+                def test_spikeshape(time,tcourse,tcourse_med,tcourse_std):
                     
-            ## check validity of spike kernel by detecting hyperpolarization
-            ## if the shape of first 50 spikes are suspicious, it will return an empty array 
-            ## this will stop erroneous detection of noise after there is no spike anymore
-            
-            
-            spiketimes = get_spiketimes(high_freq, high_freq_med + 2.5 * high_freq_std,trace, trace_med+2.5*trace_std,tlimit)
-            if (len(trace))<50000:
+                    regressor=np.hstack((np.array([[1],[1],[1]]),np.array([[-1],[-0],[1]])))
+                    inverse_matrix=np.dot(np.linalg.inv(np.dot(regressor.T,regressor)),regressor.T)
+                    
+                    time=time[(time-4)>=0]
+                    
+                    spike_matrix=np.zeros((len(time),3))
+                    for t in range(3):
+                        spike_matrix[:,t]=tcourse[time-3+t]
+                    
+                    spike_matrix -= spike_matrix.mean(axis=1)[:,None]
+                    
+                    gradient=np.dot(inverse_matrix,spike_matrix.T)[1,:]
+                    
+                    s,p = ttest_1samp(gradient,0)
+                    
+                    return (s,p)
+                    
                 
-                #shorter recording should have looser criteria
-                spiketimes = get_spiketimes(high_freq, high_freq_med + 2.5 * high_freq_std,trace, trace_med+2.5*trace_std,tlimit)
+                spiketimes = get_spiketimes(high_freq, high_freq_med + thre * high_freq_std,trace, trace_med+thre*trace_std,tlimit)
                 
-            else:
+                spikebins=50
+                spikenrep=(len(spiketimes)//spikebins)+int((len(spiketimes)%spikebins)>0)
                 
-                spiketimes = get_spiketimes(high_freq, high_freq_med + 3.5 * high_freq_std,trace, trace_med+3.5*trace_std,tlimit)
-            
-            
-            spikebins=50
-            spikenrep=(len(spiketimes)//spikebins)+int((len(spiketimes)%spikebins)>0)
-            
-            tlimit=0
-            for n in range(spikenrep):
-                spike_inds=np.arange(spikebins*n,min(spikebins*(n+1),len(spiketimes)))
-                slen=len(spike_inds)
-                spike_t=spiketimes[spike_inds]
-                spike_t=spike_t[(spike_t-4)>=0]
+                tlimit=0
+                for n in range(spikenrep):
+                    spike_inds=np.arange(spikebins*n,min(spikebins*(n+1),len(spiketimes)))
+                    slen=len(spike_inds)
+                    spike_t=spiketimes[spike_inds]
                 
-                spike_matrix=np.zeros((len(spike_t),3))
-                median_matrix=np.zeros((len(spike_t),3))
-                std_matrix=np.zeros((len(spike_t),3))
-                for t in range(3):
-                    spike_matrix[:,t]=trace[spike_t-4+t]
-                    median_matrix[:,t]=trace_med[spike_t-4+t]
-                    std_matrix[:,t]=trace_std[spike_t-4+t]
-                
-                diff=(spike_matrix.mean(axis=1)-median_matrix.mean(axis=1))/std_matrix.mean(axis=1)
-                
-                s,p = ttest_1samp(diff,0)
-                
-                if (p<0.1) and (diff.mean()>0):
+                    (s,p) = test_spikeshape(spike_t,trace,trace_med,trace_std)
+                    if n==0:
+                        th_scores[th]=p
+                    
+                    if (p<0.1) and (s>0):
+                            
                         tlimit=min(spike_t[-1]+15,len(trace))
-                        
-                elif n>0:
-                    for j in range(slen):
-                        endt=min(spikebins*(n+1),len(spiketimes))-j
-                        spike_inds=np.arange((endt-50),endt)
-                        spike_t=spiketimes[spike_inds]
-                        spike_t=spike_t[(spike_t-4)>=0]
-                        
-
-                        spike_matrix=np.zeros((len(spike_t),3))
-                        median_matrix=np.zeros((len(spike_t),3))
-                        std_matrix=np.zeros((len(spike_t),3))
-                        for t in range(3):
-                            spike_matrix[:,t]=trace[spike_t-4+t]
-                            median_matrix[:,t]=trace_med[spike_t-4+t]
-                            std_matrix[:,t]=trace_std[spike_t-4+t]
-                        
-                        diff=(spike_matrix.mean(axis=1)-median_matrix.mean(axis=1))/std_matrix.mean(axis=1)
-                        
-                        s,p = ttest_1samp(diff,0)
+                            
+                    elif n>0:
+                        for j in range(slen):
+                            endt=min(spikebins*(n+1),len(spiketimes))-j
+                            spike_inds=np.arange((endt-50),endt)
+                            spike_t=spiketimes[spike_inds]
                 
-                        if (p<0.1) and (diff.mean()>0):
-                            tlimit=min(spike_t[-1]+15,len(trace))
-                            break
-                    break
-                else:
-                    break
+                            (s,p) = test_spikeshape(spike_t,trace,trace_med,trace_std)
+                    
+                            if (p<0.1) and (s>0):
+                                tlimit=min(spike_t[-1]+15,len(trace))
+                                break
+                        
+                        break
+                    
+                    else:
+                        th_scores[th]=1
+                        break
+                
+                th_tlimits[th]=tlimit
+                
+                
+            best_inds=np.where(th_scores<0.1)[0]
+            if best_inds.size>0:
+                best_thre=threshold_sets[best_inds[0]]
+                best_tlimit=int(th_tlimits[best_inds[0]])
+            else:
+                best_thre=threshold_sets[0]
+                best_tlimit=0
+                
+                
             
-            if tlimit==0:
+            if best_tlimit==0:
                 spiketimes = np.zeros((0,))
                 break;
             
-            spiketimes = get_spiketimes(high_freq, high_freq_med + 3.5 * high_freq_std,trace, trace_med+3.5*trace_std,tlimit)
+            spiketimes = get_spiketimes(high_freq, high_freq_med + best_thre * high_freq_std,trace, trace_med+best_thre*trace_std,best_tlimit)
                 
             
             
@@ -315,8 +331,7 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
         
         # lower threshold, now picking up spikes not merely based on threshold but spike shape
         
-        spiketimes = get_spiketimes(high_freq, high_freq_med + 2.5 * high_freq_std,trace, trace_med+2.5*trace_std,tlimit)
-        
+        spiketimes = get_spiketimes(high_freq, high_freq_med + (best_thre-0.5) * high_freq_std,trace, trace_med+(best_thre-0.5)*trace_std,best_tlimit)
         spikesizes = get_spikesizes(high_freq, spiketimes, kernel)
         spiketrain = get_spiketrain(spiketimes, spikesizes, len(trace))
         
@@ -341,9 +356,9 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
         
         
         return (sub_thresh2, high_freq, spiketimes, spiketrain, spikesizes, super_times, super_sizes,
-                super_times2, super_sizes2, kernel, upsampled_kernel, super_kernel,tlimit)
+                super_times2, super_sizes2, kernel, upsampled_kernel, super_kernel,best_tlimit,best_thre)
     else:
-        return (sub_thresh2, high_freq, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0)
+        return (sub_thresh2, high_freq, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0,0)
             
 
 
@@ -378,7 +393,7 @@ def optimize_trace(img,mean_img,cell_inds):
     
     
     (sub_thresh1, high_freq1, spiketimes1, spiketrain1,spikesizes1, super_times1, super_sizes1, 
-     super_times11, super_sizes11, kernel1, upsampled_kernel1, super_kernel1,tlimit1) = get_spikes(
+     super_times11, super_sizes11, kernel1, upsampled_kernel1, super_kernel1,tlimit1,threshold1) = get_spikes(
         norm_tcourse1, superfactor=10, threshs=(.35, .5, .6))
     
     if isinstance(spiketimes1,int):
@@ -419,7 +434,7 @@ def optimize_trace(img,mean_img,cell_inds):
         
         ans = np.array([(first_timecourse,np.array(first_timecourse.shape),norm_tcourse1,
                          np.zeros(norm_tcourse1.shape),spike_tcourse1,np.zeros(spike_tcourse1.shape),
-                         tlimit1,0, spiketimes1,super_times11,kernel1, super_kernel1, ROI_candidates[0],ROI_candidates[1],
+                         tlimit1,0, threshold1,0,spiketimes1,super_times11,kernel1, super_kernel1, ROI_candidates[0],ROI_candidates[1],
                          weight_init,np.zeros(weight_init.shape),np.zeros((21,3)),0.,0.,0)],
                          dtype=[('raw_tcourse1', np.ndarray),
                                 ('raw_tcourse2', np.ndarray),
@@ -429,6 +444,8 @@ def optimize_trace(img,mean_img,cell_inds):
                                 ('spike_tcourse2', np.ndarray),
                                 ('tlimit1', np.int),
                                 ('tlimit2', np.int),
+                                ('threshold1', np.int),
+                                ('threshold2', np.int),
                                 ('spiketime', np.ndarray),
                                 ('super_spiketime', np.ndarray),
                                 ('spike_kernel', np.ndarray),
@@ -538,7 +555,7 @@ def optimize_trace(img,mean_img,cell_inds):
         
     
         (sub_thresh2, high_freq2, spiketimes2, spiketrain2,spikesizes2, super_times2, super_sizes2, 
-         super_times22, super_sizes22, kernel2, upsampled_kernel2, super_kernel2,tlimit2) = get_spikes(
+         super_times22, super_sizes22, kernel2, upsampled_kernel2, super_kernel2,tlimit2,threshold2) = get_spikes(
             norm_tcourse2, superfactor=10, threshs=(.35, .5, .6))
             
         
@@ -560,7 +577,7 @@ def optimize_trace(img,mean_img,cell_inds):
         if (not_active==1):
             ans = np.array([(first_timecourse,np.array(first_timecourse.shape),norm_tcourse1,
                              np.zeros(norm_tcourse1.shape),spike_tcourse1,np.zeros(spike_tcourse1.shape),
-                             tlimit1,0, spiketimes1,super_times11,kernel1, super_kernel1, ROI_candidates[0],ROI_candidates[1],
+                             tlimit1,0, threshold1,0, spiketimes1, super_times11,kernel1, super_kernel1, ROI_candidates[0],ROI_candidates[1],
                              weight_init,np.zeros(weight_init.shape),np.zeros((21,3)),0.,0.,0)],
                              dtype=[('raw_tcourse1', np.ndarray),
                                     ('raw_tcourse2', np.ndarray),
@@ -570,6 +587,8 @@ def optimize_trace(img,mean_img,cell_inds):
                                     ('spike_tcourse2', np.ndarray),
                                     ('tlimit1', np.int),
                                     ('tlimit2', np.int),
+                                    ('threshold1', np.int),
+                                    ('threshold2', np.int),
                                     ('spiketime', np.ndarray),
                                     ('super_spiketime', np.ndarray),
                                     ('spike_kernel', np.ndarray),
@@ -586,7 +605,7 @@ def optimize_trace(img,mean_img,cell_inds):
         else:
             ans = np.array([(first_timecourse,second_timecourse,norm_tcourse1,
                              norm_tcourse2,spike_tcourse1,
-                             spike_tcourse2,tlimit1,tlimit2,spiketimes2,super_times22,
+                             spike_tcourse2,tlimit1,tlimit2,threshold1,threshold2,spiketimes2,super_times22,
                              kernel2, super_kernel2,ROI_candidates[0],ROI_candidates[1],
                              weight_init,W,Losses,SN[0],SN[1],1)],
                              dtype=[('raw_tcourse1', np.ndarray),
@@ -597,6 +616,8 @@ def optimize_trace(img,mean_img,cell_inds):
                                     ('spike_tcourse2', np.ndarray),
                                     ('tlimit1', np.int),
                                     ('tlimit2', np.int),
+                                    ('threshold1', np.int),
+                                    ('threshold2', np.int),
                                     ('spiketime', np.ndarray),
                                     ('super_spiketime', np.ndarray),
                                     ('spike_kernel', np.ndarray),

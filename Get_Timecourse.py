@@ -10,17 +10,17 @@ clear_all()
 
 import ep
 import os
-import Volt_imfunctions as im
+import Volt_Imfunctions as im
 import array as ar
 import struct as st
 import scipy.io as sio
 import pandas as pd
-import ROI
+import Volt_ROI as ROI
 from scipy import stats
 
 
-pathname=r"D:\Takashi\SPIM\06082017";
-fname="Fish1-4"
+pathname=r"D:\Takashi\SPIM\06152017";
+fname="Fish1-1"
 
 
 imdir=pathname+"\\"+fname+"\\Registered\\"
@@ -49,6 +49,8 @@ np.save(imdir+"ROI_info.npy",ROI_info)
 
 
 
+
+        
 active_cell=np.zeros((len(ROI_info),))
 active_n=0
 plt.figure(1,figsize=(16,8))
@@ -64,11 +66,18 @@ for i in range(nROI):
     if t['active']==1:
         active_n+=1;
         active_cell[i]=1
-        plt.subplot(1,2,2).plot(np.arange(len(t['norm_tcourse2']))/300,t['norm_tcourse2']-1+0.2*(active_n-1))
+        tlimit=t['tlimit2']
+        spikes=np.where(t['spike_tcourse2']>0)[0]
+        
+        plt.subplot(1,2,2).plot(np.arange(tlimit)/300,t['norm_tcourse2'][:tlimit]-1+0.2*(active_n-1))
+        plt.subplot(1,2,2).plot(np.arange(tlimit,len(t['norm_tcourse2']))/300,t['norm_tcourse2'][tlimit:len(t['norm_tcourse2'])]-1+0.2*(active_n-1),color=(0.3,0.3,0.3))
+        
+        for s in range(len(spikes)):
+            plt.subplot(1,2,2).plot(spikes[s]/300,0.15+0.2*(active_n-1),'ko',markersize=1)
         plt.ylim(-0.1,0.2*active_n+0.1) 
         
 plt.savefig(imdir+"activity_timecourse.png")
-        
+
 
 active_cells=np.where(active_cell)[0]
 active_tcourse=np.zeros((active_n,image_len))

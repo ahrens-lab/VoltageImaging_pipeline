@@ -20,7 +20,7 @@ from scipy import stats
 import glob
 
 
-dirname=r"D:\Takashi\SPIM\06152017\test";
+dirname=r"D:\Takashi\SPIM\06152017";
 
 subdir=glob.glob(dirname+"\\Fish*\\")
 
