@@ -226,10 +226,9 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
         trace_med = np.array(pd.Series(sub_thresh1).rolling(window=9000,min_periods=4500,center=True).median())
         trace_std = np.array(pd.Series(sub_thresh1).rolling(window=9000,min_periods=4500,center=True).std())
         
-        # high threshold to confidently pick up spikes, ok to miss some
         if iters == 0:
             
-            
+            ## adapt threshold for each neurons based on spike shape integrity
     
             threshold_sets=(2.5,3.,3.5);
             th_scores=np.ones((len(threshold_sets),))
@@ -324,7 +323,7 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
                 
             
             
-        if spiketimes.size<1:
+        if spiketimes.size==0:
             break;
             
         kernel = get_kernel(high_freq, spiketimes)
@@ -361,11 +360,9 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
         return (sub_thresh2, high_freq, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0,0)
             
 
-
 def optimize_trace(img,mean_img,cell_inds):
 
     
-    image_len=img.shape[0]
     ROI1_image=np.zeros(mean_img.shape)
     ROI1_image[cell_inds]=1
     
