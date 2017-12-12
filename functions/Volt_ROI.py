@@ -214,6 +214,12 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
     # Modified by Takashi Kawashima @ HHMI Janelia
     
     
+    # calculate beforehand the matrix for calculating pre-spike ramp gradients
+    
+    regressor=np.hstack((np.array([[1],[1],[1]]),np.array([[-1],[-0],[1]])))
+    inverse_matrix=np.dot(np.linalg.inv(np.dot(regressor.T,regressor)),regressor.T)
+    
+    
     for iters in range(3):
         sub_thresh1 = trace if iters == 0 else trace - \
             np.convolve(spiketrain, kernel, 'same')  # subtract spikes
@@ -245,10 +251,8 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
                 ## if the shape of first 50 spikes are suspicious, it will return an empty array 
                 ## this will stop erroneous detection of noise after there is no spike anymore
                 
-                def test_spikeshape(time,tcourse,tcourse_med,tcourse_std):
+                def test_spikeshape(time,tcourse,tcourse_med,tcourse_std,regress_matrix):
                     
-                    regressor=np.hstack((np.array([[1],[1],[1]]),np.array([[-1],[-0],[1]])))
-                    inverse_matrix=np.dot(np.linalg.inv(np.dot(regressor.T,regressor)),regressor.T)
                     
                     time=time[(time-4)>=0]
                     
@@ -258,7 +262,7 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
                     
                     spike_matrix -= spike_matrix.mean(axis=1)[:,None]
                     
-                    gradient=np.dot(inverse_matrix,spike_matrix.T)[1,:]
+                    gradient=np.dot(regress_matrix,spike_matrix.T)[1,:]
                     
                     s,p = ttest_1samp(gradient,0)
                     
@@ -276,11 +280,11 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
                     slen=len(spike_inds)
                     spike_t=spiketimes[spike_inds]
                 
-                    (s,p) = test_spikeshape(spike_t,trace,trace_med,trace_std)
+                    (s,p) = test_spikeshape(spike_t,trace,trace_med,trace_std, inverse_matrix)
                     if n==0:
                         th_scores[th]=p
                     
-                    if (p<0.1) and (s>0):
+                    if (p<0.05) and (s>0):
                             
                         tlimit=min(spike_t[-1]+15,len(trace))
                             
@@ -290,9 +294,9 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
                             spike_inds=np.arange((endt-50),endt)
                             spike_t=spiketimes[spike_inds]
                 
-                            (s,p) = test_spikeshape(spike_t,trace,trace_med,trace_std)
+                            (s,p) = test_spikeshape(spike_t,trace,trace_med,trace_std , inverse_matrix)
                     
-                            if (p<0.1) and (s>0):
+                            if (p<0.05) and (s>0):
                                 tlimit=min(spike_t[-1]+15,len(trace))
                                 break
                         
@@ -305,7 +309,7 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
                 th_tlimits[th]=tlimit
                 
                 
-            best_inds=np.where(th_scores<0.1)[0]
+            best_inds=np.where(th_scores<0.05)[0]
             if best_inds.size>0:
                 best_thre=threshold_sets[best_inds[0]]
                 best_tlimit=int(th_tlimits[best_inds[0]])
