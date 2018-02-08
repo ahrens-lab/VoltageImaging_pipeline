@@ -134,9 +134,17 @@ def imrank_dll(image,r):
     import ctypes
     from numpy.ctypeslib import ndpointer
     import os
-    
-    imfc = ctypes.cdll.LoadLibrary(os.getcwd()+r"\\functions\\imfc.dll")
-    
+    import sys
+
+    if sys.platform == 'darwin':  # Mac
+        imfc = ctypes.cdll.LoadLibrary(
+            os.getcwd() + r"/functions/imfc.cpython-36m-darwin.so")    
+    elif sys.platform == 'linux':
+        imfc = ctypes.cdll.LoadLibrary(
+            os.getcwd() + r"/functions/imfc.cpython-36m-x86_64-linux-gnu.so")        
+    else:  # Windows
+        imfc = ctypes.cdll.LoadLibrary(os.getcwd()+r"\\functions\\imfc.dll")
+
     func1 = imfc.imrank
     func1.restype = None
     func1.argtypes = [ndpointer(ctypes.c_ushort, flags="C_CONTIGUOUS"),
@@ -160,19 +168,19 @@ def imrank_dll(image,r):
     ones_pad=np.zeros((image.shape[0]+2*r,image.shape[1]+2*r),'uint16')
     ones_pad[r:-r,r:-r]=1
     rankout=np.zeros((image.shape[0],image.shape[1]),'uint16')
-    onesout=np.zeros((image.shape[0],image.shape[1]),'int')
+    onesout=np.zeros((image.shape[0],image.shape[1]),'int32')
     
     indslist = np.where(ones_pad>0)
-    inds=(indslist[0]*image_pad.shape[1]+indslist[1]).astype('int')
+    inds=(indslist[0]*image_pad.shape[1]+indslist[1]).astype('int32')
     
     disk=makeDisk(r)
     (r_inds,c_inds)=np.where(disk>0)
     r_inds -= r
     c_inds -= r
-    rankinds=(r_inds*image_pad.shape[1]+c_inds).astype('int')
+    rankinds=(r_inds*image_pad.shape[1]+c_inds).astype('int32')
     
     func1(image_pad,ones_pad,inds,int(inds.size),rankinds,int(rankinds.size),rankout)
-    func2(np.array(onesout.shape).astype('int'),disk.astype('int'),np.array(disk.shape).astype('int'),onesout)
+    func2(np.array(onesout.shape).astype('int32'),disk.astype('int32'),np.array(disk.shape).astype('int32'),onesout)
     
     return rankout.astype('float')/onesout.astype('float')
 
@@ -184,8 +192,16 @@ def local_minima_dll(image,r):
     import ctypes
     from numpy.ctypeslib import ndpointer
     import os
-    
-    imfc = ctypes.cdll.LoadLibrary(os.getcwd()+r"\\functions\\imfc.dll")
+    import sys
+
+    if sys.platform == 'darwin':  # Mac
+        imfc = ctypes.cdll.LoadLibrary(
+            os.getcwd() + r"/functions/imfc.cpython-36m-darwin.so")    
+    elif sys.platform == 'linux':
+        imfc = ctypes.cdll.LoadLibrary(
+            os.getcwd() + r"/functions/imfc.cpython-36m-x86_64-linux-gnu.so")        
+    else:  # Windows
+        imfc = ctypes.cdll.LoadLibrary(os.getcwd()+r"\\functions\\imfc.dll")
     
     func1 = imfc.local_min
     func1.restype = None
@@ -207,16 +223,16 @@ def local_minima_dll(image,r):
     minout=np.zeros((image.shape[0]+2*r,image.shape[1]+2*r),'uint8')
     
     indslist = np.where(ones_pad>0)
-    inds=(indslist[0]*image_pad.shape[1]+indslist[1]).astype('int')
+    inds=(indslist[0]*image_pad.shape[1]+indslist[1]).astype('int32')
     
     disk=makeDisk(r)   
     disk[r,r]=0
     (r_inds,c_inds)=np.where(disk>0)
     r_inds -= r
     c_inds -= r
-    mininds=(r_inds*image_pad.shape[1]+c_inds).astype('int')
+    mininds=(r_inds*image_pad.shape[1]+c_inds).astype('int32')
     
-    func1(image_pad,np.array(image_pad.shape).astype('int'),mininds,int(mininds.size),inds,int(inds.size),minout)
+    func1(image_pad,np.array(image_pad.shape).astype('int32'),mininds,int(mininds.size),inds,int(inds.size),minout)
     
     
     return minout[r:-r,r:-r]
