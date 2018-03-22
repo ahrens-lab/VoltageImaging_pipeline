@@ -8,6 +8,7 @@ Created on Wed Jan 25 21:16:25 2017
 import matplotlib.pyplot as plt
 import numpy as np
 from tifffile import imread
+import pandas as pd
 from sys import path
 path.append('functions/')
 import Volt_Imfunctions as im
@@ -17,7 +18,7 @@ pathname = '/mnt/home/jfriedrich/voltage/06152017Fish1-2/'
 datadir = pathname + 'data_local/'
 imdir = pathname + 'fig/'
 
-stack_fname = datadir + "registered.tif"
+stack_fname = datadir + "registered-partial.tif"  # "registered.tif"
 
 
 stack = imread(stack_fname)
@@ -38,6 +39,141 @@ for n in range(0, nROI):
         ROI_info = np.append(ROI_info, ROI.optimize_trace(stack, ave, (inds[0], inds[1])))
 
 np.save(imdir + "ROI_info_optimized.npy", ROI_info)
+
+
+############################################################################
+ROI_info = np.load(imdir + "ROI_info_optimized.npy")
+
+T = len(stack)
+dims = stack.shape[1:]
+
+ROIs = np.zeros((nROI,) + dims, dtype='float32')
+for n in range(0, nROI):
+    ROIs[n, ROI_info['ROI_Y'][n], ROI_info['ROI_X'][n]] = ROI_info['Weight_final'][n]
+ROIs /= np.maximum(np.linalg.norm(ROIs.reshape(nROI, -1), 2, 1), 1e-9)[:, None, None]
+
+overlap = list([np.where(x > 0)[0]
+                for x in ((ROIs.reshape(nROI, -1).dot(ROIs.reshape(nROI, -1).T) > 0) - np.eye(nROI))])
+
+Yr = stack.reshape(T, -1)
+
+
+#######################################
+# low rank decomposition
+def blockCD(Yr, A, C=None, iters=5):
+    U = A.dot(Yr.T)
+    V = A.dot(A.T)
+    if C is None:
+        C = A[:-1].dot((Yr - Yr.mean(0).astype('float32')).T)
+        C = np.concatenate([C, U[-1:]])
+    for _ in range(iters):
+        Cold = C.copy()
+        for m in np.where(V.diagonal())[0]:  # range(len(U)):  # neurons and background
+            C[m] += (U[m] - V[m].dot(C)) / V[m, m]
+            # C[m] = np.maximum(C[m], 0)
+        # print(np.linalg.norm(C-Cold))
+    return C
+
+
+use_blockCD = False
+# get traces
+b = stack.mean(0).astype('float32').ravel()
+b /= np.sqrt(b.dot(b))
+A = np.concatenate([ROIs.reshape(nROI, -1), b.reshape(1, -1)])
+if use_blockCD:
+    C = blockCD(Yr, A)
+else:
+    C = scipy.linalg.lstsq(A.T, Yr.T)[0]  # numpy would be very slow !!!
+# update background shape
+U = C.dot(Yr)
+V = C.dot(C.T)
+for _ in range(5):
+    A[-1] += ((U[-1] - V[-1].dot(A)) / V[-1, -1])
+# update traces
+if use_blockCD:
+    C = blockCD(Yr, A)
+else:
+    C = scipy.linalg.lstsq(A.T, Yr.T)[0]  # numpy would be very slow !!!
+
+B = stack - C[:-1].T.dot(A[:-1]).reshape(stack.shape)
+
+for n in range(0, nROI):
+    print("Neuron %d" % n)
+    inds = ROI_list[n]
+    if n == 0:
+        if len(overlap[n]):
+            ROI_info2 = ROI.optimize_trace(
+                B + np.outer(C[n], A[n]).reshape(stack.shape), ave, (inds[0], inds[1]))
+        else:
+            ROI_info2 = ROI_info[n]
+    else:
+        if len(overlap[n]):
+            ROI_info2 = np.append(ROI_info2, ROI.optimize_trace(
+                B + np.outer(C[n], A[n]).reshape(stack.shape), ave, (inds[0], inds[1])))
+        else:
+            ROI_info2 = np.append(ROI_info2, ROI_info[n])
+
+
+#######################################
+# estimate background from projection of rawdata on shape
+
+tcourses = ROIs.reshape(nROI, -1).dot(Yr.T)
+kernel = np.ones((51,)) / 51
+divider = np.convolve(np.ones(T), kernel, mode='same')
+tcourses_detrend = np.zeros_like(tcourses)
+for i in range(nROI):
+    tcourses_detrend[i] = np.convolve(tcourses[i], kernel, mode='same') / divider
+tcourses_zeroed = tcourses - tcourses_detrend
+
+B = stack - tcourses_zeroed.T.dot(ROIs.reshape(nROI, -1)).reshape(stack.shape)
+
+for n in range(0, nROI):
+    print("Neuron %d" % n)
+    inds = ROI_list[n]
+    if n == 0:
+        if len(overlap[n]):
+            ROI_info2 = ROI.optimize_trace(
+                B + np.outer(tcourses_zeroed[n], ROIs[n].ravel()).reshape(stack.shape), ave, (inds[0], inds[1]))
+        else:
+            ROI_info2 = ROI_info[n]
+    else:
+        if len(overlap[n]):
+            ROI_info2 = np.append(ROI_info2, ROI.optimize_trace(
+                B + np.outer(tcourses_zeroed[n], ROIs[n].ravel()).reshape(stack.shape), ave, (inds[0], inds[1])))
+        else:
+            ROI_info2 = np.append(ROI_info2, ROI_info[n])
+
+#######################################
+# estimate background from projection of rawdata on shape
+
+tcourses = ROIs.reshape(nROI, -1).dot(Yr.T)
+tcourses_detrend = np.zeros_like(tcourses)
+for i in range(nROI):
+    tcourses_detrend[i] = np.array(pd.Series(tcourses[i]).rolling(
+        window=150, min_periods=75, center=True).quantile(0.8))
+tcourses_zeroed = tcourses - tcourses_detrend
+
+B = stack - tcourses_zeroed.T.dot(ROIs.reshape(nROI, -1)).reshape(stack.shape)
+
+for n in range(0, nROI):
+    print("Neuron %d" % n)
+    inds = ROI_list[n]
+    if n == 0:
+        if len(overlap[n]):
+            ROI_info3 = ROI.optimize_trace(
+                B + np.outer(tcourses_zeroed[n], ROIs[n].ravel()).reshape(stack.shape), ave, (inds[0], inds[1]))
+        else:
+            ROI_info3 = ROI_info[n]
+    else:
+        if len(overlap[n]):
+            ROI_info3 = np.append(ROI_info3, ROI.optimize_trace(
+                B + np.outer(tcourses_zeroed[n], ROIs[n].ravel()).reshape(stack.shape), ave, (inds[0], inds[1])))
+        else:
+            ROI_info3 = np.append(ROI_info3, ROI_info[n])
+
+
+
+############################################################################
 
 
 active_cell = np.zeros((len(ROI_info),))
