@@ -364,7 +364,7 @@ def get_spikes(trace, superfactor=10, threshs=(.4, .6, .75)):
         return (sub_thresh2, high_freq, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0,0)
             
 
-def optimize_trace(img,mean_img,cell_inds):
+def optimize_trace(img,mean_img,cell_inds,use_NMF=False):
 
     
     ROI1_image=np.zeros(mean_img.shape)
@@ -489,60 +489,75 @@ def optimize_trace(img,mean_img,cell_inds):
         peak_M=tcourse_zeroed[spike_tcourse1>0,:]
         noise_M=tcourse_zeroed[noise_inds,:]
         
-        peak_dot=np.dot(peak_M,W).mean()
-        noise_dot=np.dot(noise_M,W)
-        noise_dot1=noise_dot.mean()
-        noise_dot2=(np.dot(noise_M,W)**2).mean()
-        peak_mean=peak_M.mean(axis=0)
-        noise_mean=noise_M.mean(axis=0)
-        
-        L1=(peak_dot-noise_dot1)**2
-        L2=(noise_dot1)**2
-        L3=noise_dot2
-        
-        V=L3-L2;
-        
-        N=(W**2).sum()
-        L2_alpha=0.2  # 0.2
-        
-        Losses=np.zeros((21,3))
-        Losses[0,0]=(L1/V)
-        Losses[0,1]=L2_alpha*N
-        Losses[0,2]=((L1/V)-L2_alpha*N)
-        SN[0]=abs(np.dot(peak_M,W).mean()/np.dot(noise_M,W).std())
-        
-        
-        for i in range(20):
-            
-            
-            dW1=2*(peak_dot-noise_dot1)*(peak_mean-noise_mean)
-            dW2=2*noise_dot1*noise_mean
-            dW3=2*np.mean(noise_dot[:,None]*noise_M,axis=0)
-            
-            new_W=W+(((dW1/V)-(L1*(dW3-dW2))/(V**2))-2*L2_alpha*W)*learn_speed
-            new_W[new_W<0]=0
-            
-
-            peak_dot=np.dot(peak_M,new_W).mean()
-            noise_dot=np.dot(noise_M,new_W)
-            noise_dot1=noise_dot.mean(axis=0)
-            noise_dot2=(noise_dot**2).mean()
+        if use_NMF:
+            W = -peak_M.mean(0)
+            SN[0] = abs(np.dot(peak_M, W).mean() / np.dot(noise_M, W).std())
+            for _ in range(5):
+                # update trace
+                noisy_trace = -tcourse_zeroed.dot(W)
+                spikeshape = get_kernel(noisy_trace, spiketimes1)
+                spikesizes = get_spikesizes(noisy_trace, spiketimes1, spikeshape)
+                spiketrain = get_spiketrain(spiketimes1, spikesizes, len(noisy_trace))
+                denoised_trace = np.convolve(spiketrain, spikeshape, 'same')
+                # update weights
+                W = np.maximum(-denoised_trace.dot(tcourse_zeroed), 0)  # maybe also sparsify?
+                W /= np.sqrt(W.dot(W))
+            Losses = np.array(np.nan)
+        else:
+            peak_dot=np.dot(peak_M,W).mean()
+            noise_dot=np.dot(noise_M,W)
+            noise_dot1=noise_dot.mean()
+            noise_dot2=(np.dot(noise_M,W)**2).mean()
+            peak_mean=peak_M.mean(axis=0)
+            noise_mean=noise_M.mean(axis=0)
             
             L1=(peak_dot-noise_dot1)**2
             L2=(noise_dot1)**2
             L3=noise_dot2
-            V=L3-L2
-            N=(W**2).sum()
-            new_L=(L1/V)-L2_alpha*N
-            print("%d, %d" %((L1/V),L2_alpha*N))
             
-            if new_L<Losses[i,2]:
-                break
-            else:
-                W=new_W
-                Losses[i+1,0]=(L1/V)
-                Losses[i+1,1]=L2_alpha*N
-                Losses[i+1,2]=new_L
+            V=L3-L2;
+            
+            N=(W**2).sum()
+            L2_alpha=0.2  # 0.2
+            
+            Losses=np.zeros((21,3))
+            Losses[0,0]=(L1/V)
+            Losses[0,1]=L2_alpha*N
+            Losses[0,2]=((L1/V)-L2_alpha*N)
+            SN[0]=abs(np.dot(peak_M,W).mean()/np.dot(noise_M,W).std())
+            
+            
+            for i in range(20):
+                
+                
+                dW1=2*(peak_dot-noise_dot1)*(peak_mean-noise_mean)
+                dW2=2*noise_dot1*noise_mean
+                dW3=2*np.mean(noise_dot[:,None]*noise_M,axis=0)
+                
+                new_W=W+(((dW1/V)-(L1*(dW3-dW2))/(V**2))-2*L2_alpha*W)*learn_speed
+                new_W[new_W<0]=0
+                
+
+                peak_dot=np.dot(peak_M,new_W).mean()
+                noise_dot=np.dot(noise_M,new_W)
+                noise_dot1=noise_dot.mean(axis=0)
+                noise_dot2=(noise_dot**2).mean()
+                
+                L1=(peak_dot-noise_dot1)**2
+                L2=(noise_dot1)**2
+                L3=noise_dot2
+                V=L3-L2
+                N=(W**2).sum()
+                new_L=(L1/V)-L2_alpha*N
+                print("%d, %d" %((L1/V),L2_alpha*N))
+                
+                if new_L<Losses[i,2]:
+                    break
+                else:
+                    W=new_W
+                    Losses[i+1,0]=(L1/V)
+                    Losses[i+1,1]=L2_alpha*N
+                    Losses[i+1,2]=new_L
         
         
         SN[1]=abs(np.dot(peak_M,W).mean()/np.dot(noise_M,W).std())
