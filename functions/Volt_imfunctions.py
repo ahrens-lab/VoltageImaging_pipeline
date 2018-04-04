@@ -388,7 +388,6 @@ def proof_images(imlist,inds):
     
     from numpy.random import permutation
     import matplotlib.patches as patches
-    import imfunctions as im
     import matplotlib.pyplot as plt
     
     image_size=imlist.shape[2]
@@ -409,7 +408,7 @@ def proof_images(imlist,inds):
         for i in range(proof_size):
             image=imlist[inds[permute_inds[block_size*b+i]],:,:,:].squeeze()
             plot_position=(int(i/10),int(np.mod(i,10)))
-            tmp=np.tile(im.imNormalize90(image)[:,:,None],(1,1,3))
+            tmp=np.tile(imNormalize(image,90)[:,:,None],(1,1,3))
             tmp[image_radius,image_radius,0]=1
             tmp[image_radius,image_radius,1]=0
             tmp[image_radius,image_radius,2]=0
